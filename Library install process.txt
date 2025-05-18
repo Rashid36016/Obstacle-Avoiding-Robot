@@ -1,0 +1,3 @@
+Library Install:
+Go to Arduino IDE > Tools > Manage library > Search "Adafruit Motor" > install "Adafruit Motor Shield Library by Adafruit" and "Adafruit Motor Shield Library V2 by Adafruit".
+
