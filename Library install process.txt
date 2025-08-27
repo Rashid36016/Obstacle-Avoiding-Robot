@@ -1,3 +1,7 @@
 Library Install:
-Go to Arduino IDE > Tools > Manage library > Search "Adafruit Motor" > install "Adafruit Motor Shield Library by Adafruit" and "Adafruit Motor Shield Library V2 by Adafruit".
+Go to Arduino IDE > Tools > Manage library > Now search and install below library
+
+Search "Adafruit Motor" >  install "Adafruit Motor Shield Library by Adafruit" and 
+                        >  install "Adafruit Motor Shield Library V2 by Adafruit".
+Search "NewPing"        >  install "NewPing by Tim Eckel"
 
