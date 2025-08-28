@@ -1,13 +1,24 @@
-
 #include <AFMotor.h>  
 #include <NewPing.h>
 #include <Servo.h> 
 
+
+#define DEBUG 1
+#if DEBUG
+  #define DBG(...) Serial.println(__VA_ARGS__)
+#else
+  #define DBG(...)
+#endif
+#define MAX_SPEED_OFFSET 20
 #define TRIG_PIN A0 
 #define ECHO_PIN A1 
 #define MAX_DISTANCE 200 
-#define MAX_SPEED 190 // sets speed of DC  motors
-#define MAX_SPEED_OFFSET 20
+int distance = 500; 
+
+
+#define MAX_SPEED 150                // Sets speed of DC  motors {If u decrease more than motor torque will also decrease}
+int obstaclehas = 30;                //  Sensor active distance
+
 
 NewPing sonar(TRIG_PIN, ECHO_PIN, MAX_DISTANCE); 
 
@@ -18,124 +29,141 @@ AF_DCMotor motor4(4, MOTOR34_1KHZ);
 Servo myservo;   
 
 boolean goesForward=false;
-int distance = 100;
 int speedSet = 0;
 
+int readPing(); 
+
 void setup() {
+  #if DEBUG
+    Serial.begin(115200);
+    while (!Serial) { ; }
+    DBG("== Obstacle Avoider Debug ==");
+    DBG("TRIG_PIN=A0  ECHO_PIN=A1  MAX_DISTANCE=200cm");
+  #endif
 
   myservo.attach(10);  
-  myservo.write(115); 
+  myservo.write(90);      //Servo initial angla
   delay(2000);
-  distance = readPing();
-  delay(100);
-  distance = readPing();
-  delay(100);
-  distance = readPing();
-  delay(100);
-  distance = readPing();
-  delay(100);
+
+  
+  for (int i=0; i<4; i++) {
+    distance = readPing();
+    delay(100);
+  }
+  DBG(String("Initial stabilized distance: ") + distance + " cm");
 }
 
 void loop() {
- int distanceR = 0;
- int distanceL =  0;
- delay(40);
- 
- if(distance<=15)
- {
-  moveStop();
-  delay(100);
-  moveBackward();
-  delay(300);
-  moveStop();
-  delay(200);
-  distanceR = lookRight();
-  delay(200);
-  distanceL = lookLeft();
-  delay(200);
+  int distanceR = 0;
+  int distanceL = 0;
+  delay(40);
 
-  if(distanceR>=distanceL)
-  {
-    turnRight();
+  DBG(String("[Loop] Forward distance: ") + distance + " cm");
+
+  if (distance <= obstaclehas) {   
+    DBG("Obstacle detected <=15cm -> STOP, BACKUP, SCAN");
     moveStop();
-  }else
-  {
-    turnLeft();
+    delay(100);
+    moveBackward();
+    delay(300);
     moveStop();
+    delay(200);
+
+    distanceR = lookRight();
+    DBG(String("Right scan distance: ") + distanceR + " cm");
+    delay(200);
+
+    distanceL = lookLeft();
+    DBG(String("Left scan distance: ") + distanceL + " cm");
+    delay(200);
+
+    if (distanceR >= distanceL) {
+      DBG("Decision: TURN RIGHT");
+      turnRight();
+      moveStop();
+    } else {
+      DBG("Decision: TURN LEFT");
+      turnLeft();
+      moveStop();
+    }
+  } else {
+    DBG("Path clear -> MOVE FORWARD");
+    moveForward();
   }
- }else
- {
-  moveForward();
- }
- distance = readPing();
+
+  distance = readPing();
 }
 
-int lookRight()
-{
-    myservo.write(50); 
-    delay(500);
-    int distance = readPing();
-    delay(100);
-    myservo.write(115); 
-    return distance;
+
+int lookRight() {
+  myservo.write(50);
+  DBG("Servo -> Right (50 deg)");
+  delay(500);
+  int d = readPing();
+  delay(100);
+  myservo.write(90);
+  DBG("Servo -> Center (90 deg)");
+  return d;
 }
 
-int lookLeft()
-{
-    myservo.write(170); 
-    delay(500);
-    int distance = readPing();
-    delay(100);
-    myservo.write(115); 
-    return distance;
-    delay(100);
+int lookLeft() {
+  myservo.write(170);
+  DBG("Servo -> Left (170 deg)");
+  delay(500);
+  int d = readPing();
+  delay(100);
+  myservo.write(90);
+  DBG("Servo -> Center (90 deg)");
+  return d;
 }
 
 int readPing() { 
   delay(70);
-  int cm = sonar.ping_cm();
-  if(cm==0)
-  {
+  unsigned int cm = sonar.ping_cm();
+  if (cm == 0) {
+    DBG("Ping returned 0 (out of range / no echo). Clamping to 250 cm.");
     cm = 250;
+  } else {
+    DBG(String("Ping: ") + cm + " cm");
   }
-  return cm;
+  return (int)cm;
 }
 
+
 void moveStop() {
+  DBG("Action: STOP");
   motor1.run(RELEASE); 
   motor2.run(RELEASE);
   motor3.run(RELEASE);
   motor4.run(RELEASE);
-  } 
+} 
   
 void moveForward() {
-
- if(!goesForward)
-  {
-    goesForward=true;
+  if (!goesForward) {
+    DBG("Action: FORWARD (ramp up)");
+    goesForward = true;
     motor1.run(FORWARD);      
     motor2.run(FORWARD);
     motor3.run(FORWARD); 
     motor4.run(FORWARD);     
-   for (speedSet = 0; speedSet < MAX_SPEED; speedSet +=2) // slowly bring the speed up to avoid loading down the batteries too quickly
-   {
-    motor1.setSpeed(speedSet);
-    motor2.setSpeed(speedSet);
-    motor3.setSpeed(speedSet);
-    motor4.setSpeed(speedSet);
-    delay(5);
-   }
+    for (speedSet = 0; speedSet < MAX_SPEED; speedSet += 2) {
+      motor1.setSpeed(speedSet);
+      motor2.setSpeed(speedSet);
+      motor3.setSpeed(speedSet);
+      motor4.setSpeed(speedSet);
+      delay(5);
+    }
   }
 }
 
 void moveBackward() {
-    goesForward=false;
-    motor1.run(BACKWARD);      
-    motor2.run(BACKWARD);
-    motor3.run(BACKWARD);
-    motor4.run(BACKWARD);  
-  for (speedSet = 0; speedSet < MAX_SPEED; speedSet +=2) // slowly bring the speed up to avoid loading down the batteries too quickly
-  {
+  DBG("Action: BACKWARD (ramp up)");
+  goesForward = false;
+  motor1.run(BACKWARD);      
+  motor2.run(BACKWARD);
+  motor3.run(BACKWARD);
+  motor4.run(BACKWARD);  
+  for (speedSet = 0; speedSet < MAX_SPEED; speedSet += 2) {
     motor1.setSpeed(speedSet);
     motor2.setSpeed(speedSet);
     motor3.setSpeed(speedSet);
@@ -145,6 +173,7 @@ void moveBackward() {
 }  
 
 void turnRight() {
+  DBG("Action: TURN RIGHT");
   motor1.run(FORWARD);
   motor2.run(FORWARD);
   motor3.run(BACKWARD);
@@ -157,6 +186,7 @@ void turnRight() {
 } 
  
 void turnLeft() {
+  DBG("Action: TURN LEFT");
   motor1.run(BACKWARD);     
   motor2.run(BACKWARD);  
   motor3.run(FORWARD);
@@ -166,4 +196,5 @@ void turnLeft() {
   motor2.run(FORWARD);
   motor3.run(FORWARD);
   motor4.run(FORWARD);
-}  
+}
+
